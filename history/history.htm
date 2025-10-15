@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM מקצועי - Dashboard</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+<style>
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f6fa; margin:0; padding:0; }
+header {
+  display: flex; justify-content: space-between; align-items: center;
+  background: linear-gradient(90deg, #007bff, #0056b3); padding:15px 30px; color:white; box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+header h1 { margin:0; font-size:24px; font-weight:bold; }
+.nav-buttons { display:flex; gap:10px; }
+.nav-buttons button {
+  display:flex; align-items:center; gap:6px;
+  background:white; color:#0056b3; border:none; padding:8px 14px; border-radius:6px; font-weight:500; cursor:pointer; transition:0.2s;
+}
+.nav-buttons button:hover { background:#e6f0ff; transform:translateY(-2px); }
+.nav-buttons i { font-size:16px; }
+
+/* ===== Table & general ===== */
+.panel { display:none; padding:10px; }
+h2 { color:#333; margin:20px 0 10px 0; }
+button {cursor:pointer; padding:5px 10px; border:none; border-radius:4px; margin:2px; font-size:13px; transition:0.2s;}
+button:hover {opacity:0.85;}
+input.searchBox {padding:6px 12px; width:250px; margin-bottom:10px; border-radius:4px; border:1px solid #ccc;}
+.toast {position:fixed; bottom:20px; right:20px; background:#333; color:white; padding:10px 15px; border-radius:6px; opacity:0; transition:0.5s; z-index:9999;}
+table { width:100%; border-collapse: collapse; margin-bottom:5px; background:white; border-radius:6px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.1);}
+th, td { padding:12px; border-bottom:1px solid #e0e0e0; font-size:14px; text-align:left; }
+th { background:linear-gradient(90deg,#007bff,#0056b3); color:white; cursor:pointer; user-select:none; }
+tbody tr:nth-child(even){background:#f9f9f9;}
+tbody tr:hover {background:#e6f2ff;}
+.status-active {color:#155724; font-weight:bold;}
+.status-inactive {color:#856404; font-weight:bold;}
+.status-archive {color:#004085; font-weight:bold;}
+.status-deleted {color:#721c24; font-weight:bold;}
+.multiSelect {transform:scale(1.2); margin-right:5px;}
+button.restore {background:#28a745; color:white;}
+button.delete {background:#dc3545; color:white;}
+button.favorite {background:#ffc107; color:#333;}
+button.edit {background:#17a2b8; color:white;}
+.pagination {margin:5px 0 30px 0; text-align:center;}
+.pagination button {margin:0 2px;}
+@media(max-width:768px){
+  table, thead, tbody, th, td, tr { display:block; }
+  thead tr { display:none; }
+  tbody tr { margin-bottom:15px; border:1px solid #ccc; border-radius:6px; padding:10px; }
+  tbody td { text-align:right; padding-left:50%; position:relative; }
+  tbody td::before { position:absolute; left:10px; top:12px; white-space: nowrap; font-weight:bold; content: attr(data-label); }
+  input.searchBox { width:100%; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1> CRM מערכת היסטוריה הלקוחות</h1>
+  <div class="nav-buttons">
+    <button onclick="showPanel('customersPanel')"><i class="fas fa-home"></i>לקוחות פעילים</button>
+    <button onclick="showPanel('inactivePanel')"><i class="fas fa-user-slash"></i>לא פעילים</button>
+    <button onclick="showPanel('archivePanel')"><i class="fas fa-archive"></i>ארכיון</button>
+    <button onclick="showPanel('deletedPanel')"><i class="fas fa-trash"></i>נמחקים</button>
+<button onclick="location.href='http://zombia.co.il'"><i class="fas fa-star"></i>בית</button>
+
+  </div>
+</header>
+
+<!-- ===== פאנלים ===== -->
+<div id="customersPanel" class="panel" style="display:block;">
+  <h2>לקוחות פעילים</h2>
+  <input type="text" id="searchCustomers" class="searchBox" placeholder="חפש בלקוחות פעילים...">
+  <label>תאריך יצירה מ: <input type="date" id="filterFromCustomers"></label>
+  <label>עד: <input type="date" id="filterToCustomers"></label>
+  <table id="customersTable"><thead><tr>
+    <th data-sort="name">שם ⬍</th>
+    <th data-sort="email">אימייל ⬍</th>
+    <th data-sort="mobile">טלפון ⬍</th>
+    <th data-sort="status">סטטוס ⬍</th>
+    <th data-sort="created">תאריך יצירה ⬍</th>
+    <th>פעולות</th>
+  </tr></thead><tbody></tbody></table>
+  <div id="customersPagination" class="pagination"></div>
+</div>
+
+<div id="inactivePanel" class="panel">
+  <h2>לקוחות לא פעילים</h2>
+  <input type="text" id="searchInactive" class="searchBox" placeholder="חפש בלקוחות לא פעילים...">
+  <label>תאריך יצירה מ: <input type="date" id="filterFromInactive"></label>
+  <label>עד: <input type="date" id="filterToInactive"></label>
+  <table id="inactiveTable"><thead><tr>
+    <th data-sort="name">שם ⬍</th>
+    <th data-sort="email">אימייל ⬍</th>
+    <th data-sort="mobile">טלפון ⬍</th>
+    <th data-sort="status">סטטוס ⬍</th>
+    <th data-sort="created">תאריך יצירה ⬍</th>
+    <th>פעולות</th>
+  </tr></thead><tbody></tbody></table>
+  <div id="inactivePagination" class="pagination"></div>
+</div>
+
+<div id="archivePanel" class="panel">
+  <h2>ארכיון</h2>
+  <input type="text" id="searchArchive" class="searchBox" placeholder="חפש בארכיון...">
+  <label>תאריך יצירה מ: <input type="date" id="filterFromArchive"></label>
+  <label>עד: <input type="date" id="filterToArchive"></label>
+  <table id="archiveTable"><thead><tr>
+    <th data-sort="name">שם ⬍</th>
+    <th data-sort="email">אימייל ⬍</th>
+    <th data-sort="mobile">טלפון ⬍</th>
+    <th data-sort="status">סטטוס ⬍</th>
+    <th data-sort="created">תאריך יצירה ⬍</th>
+    <th>פעולות</th>
+  </tr></thead><tbody></tbody></table>
+  <div id="archivePagination" class="pagination"></div>
+</div>
+
+<div id="deletedPanel" class="panel">
+  <h2>נמחקים</h2>
+  <input type="text" id="searchDeleted" class="searchBox" placeholder="חפש בנמחקים...">
+  <label>תאריך יצירה מ: <input type="date" id="filterFromDeleted"></label>
+  <label>עד: <input type="date" id="filterToDeleted"></label>
+  <label>תאריך מחיקה מ: <input type="date" id="filterDeletedFrom"></label>
+  <label>עד: <input type="date" id="filterDeletedTo"></label>
+  <table id="deletedTable"><thead><tr>
+    <th>בחר</th>
+    <th data-sort="name">שם ⬍</th>
+    <th data-sort="email">אימייל ⬍</th>
+    <th data-sort="mobile">טלפון ⬍</th>
+    <th data-sort="status">סטטוס ⬍</th>
+    <th data-sort="created">תאריך יצירה ⬍</th>
+    <th data-sort="deletedDate">תאריך מחיקה ⬍</th>
+    <th>פעולות</th>
+  </tr></thead><tbody></tbody></table>
+  <div id="deletedPagination" class="pagination"></div>
+  <button onclick="restoreSelected()" class="restore">שחזור נבחרים</button>
+  <button onclick="deleteSelected()" class="delete">מחיקה סופית נבחרים</button>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/* ===== החלפת פאנלים ===== */
+function showPanel(panelId){
+  document.querySelectorAll('.panel').forEach(p=>p.style.display='none');
+  document.getElementById(panelId).style.display='block';
+}
+
+/* ===== נתוני CRM ===== */
+let customers = JSON.parse(localStorage.getItem('customers')) || [];
+let inactive = JSON.parse(localStorage.getItem('inactive')) || [];
+let archive = JSON.parse(localStorage.getItem('archive')) || [];
+let deletedCustomers = JSON.parse(localStorage.getItem('deletedCustomers')) || [];
+let favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+const DELETE_PASSWORD = '1234';
+const rowsPerPage = 10;
+let currentPage = { customers:1, inactive:1, archive:1, deleted:1 };
+let sortConfig = { customers:{key:null,asc:true}, inactive:{key:null,asc:true}, archive:{key:null,asc:true}, deleted:{key:null,asc:true} };
+
+function saveLocal(){
+  localStorage.setItem('customers', JSON.stringify(customers));
+  localStorage.setItem('inactive', JSON.stringify(inactive));
+  localStorage.setItem('archive', JSON.stringify(archive));
+  localStorage.setItem('deletedCustomers', JSON.stringify(deletedCustomers));
+  localStorage.setItem('favorites', JSON.stringify(favorites));
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity = '1';
+  setTimeout(()=>{ t.style.opacity='0'; },2500);
+}
+function applyFilters(c,from,to,deletedFrom,deletedTo){
+  let createdDate = new Date(c.created);
+  if(from && createdDate<new Date(from)) return false;
+  if(to && createdDate>new Date(to)) return false;
+  if(c.deletedDate){
+    let delDate = new Date(c.deletedDate);
+    if(deletedFrom && delDate<new Date(deletedFrom)) return false;
+    if(deletedTo && delDate>new Date(deletedTo)) return false;
+  }
+  return true;
+}
+function paginateArray(array, page){ const start = (page-1)*rowsPerPage; return array.slice(start, start+rowsPerPage); }
+function sortArray(array, key, asc){
+  if(!key) return array;
+  return array.sort((a,b)=>{
+    let valA = a[key]||''; let valB = b[key]||'';
+    if(key.includes('Date')){ valA = new Date(valA); valB = new Date(valB); }
+    if(valA<valB) return asc?-1:1; if(valA>valB) return asc?1:-1; return 0;
+  });
+}
+function renderPagination(array, paginationId, pageKey){
+  const pagination = document.getElementById(paginationId);
+  pagination.innerHTML='';
+  const totalPages = Math.ceil(array.length/rowsPerPage);
+  if(totalPages <=1) return;
+  if(currentPage[pageKey]>1){
+    const prev = document.createElement('button'); prev.textContent='⟨ קודם'; prev.onclick=()=>{currentPage[pageKey]--; renderAll();}; pagination.appendChild(prev);
+  }
+  for(let i=1;i<=totalPages;i++){
+    const btn=document.createElement('button'); btn.textContent=i; if(i===currentPage[pageKey]) btn.style.fontWeight='bold'; btn.onclick=()=>{currentPage[pageKey]=i; renderAll();}; pagination.appendChild(btn);
+  }
+  if(currentPage[pageKey]<totalPages){
+    const next=document.createElement('button'); next.textContent='הבא ⟩'; next.onclick=()=>{currentPage[pageKey]++; renderAll();}; pagination.appendChild(next);
+  }
+}
+function renderTable(array, tbodyId, showDeleted=false, searchTerm='',fromDate='',toDate='',deletedFrom='',deletedTo='', pageKey=null, paginationId=null, sortKey=null, asc=true){
+  const tbody = document.getElementById(tbodyId).querySelector('tbody');
+  tbody.innerHTML='';
+  let filtered = array.filter(c=>{
+    if(!applyFilters(c,fromDate,toDate,deletedFrom,deletedTo)) return false;
+    if(!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return c.name.toLowerCase().includes(term) || (c.email && c.email.toLowerCase().includes(term)) || (c.mobile && c.mobile.includes(term));
+  });
+  filtered = sortArray(filtered, sortKey, asc);
+  if(pageKey && paginationId) filtered = paginateArray(filtered, currentPage[pageKey]);
+  filtered.forEach(c=>{
+    const tr = document.createElement('tr');
+    let statusClass = c.status==='פעיל'?'status-active': c.status==='לא פעיל'?'status-inactive': c.status==='ארכיון'?'status-archive':'status-deleted';
+    let isFav = favorites.includes(c.id)?'⭐':'';
+    tr.innerHTML = `
+      ${showDeleted?`<td><input type="checkbox" class="multiSelect" data-id="${c.id}"></td>`:''}
+      <td data-label="שם" contenteditable="true" onblur="inlineEdit('${c.id}','name',this.textContent)">${c.name} ${isFav}</td>
+      <td data-label="אימייל" contenteditable="true" onblur="inlineEdit('${c.id}','email',this.textContent)">${c.email||''}</td>
+      <td data-label="טלפון" contenteditable="true" onblur="inlineEdit('${c.id}','mobile',this.textContent)">${c.mobile||''}</td>
+      <td class="${statusClass}" data-label="סטטוס">${c.status}</td>
+      <td data-label="תאריך יצירה">${c.created||'-'}</td>
+      ${showDeleted?`<td data-label="תאריך מחיקה">${c.deletedDate||'-'}</td>`:''}
+      <td data-label="פעולות">
+        ${showDeleted?`<button class="restore" onclick="restoreCustomer('${c.id}')">שחזר</button>`:''}
+        <button class="favorite" onclick="toggleFavorite('${c.id}')">${favorites.includes(c.id)?'בטל מועדף':'⭐ מועדף'}</button>
+        <button class="delete" onclick="deleteFromTable('${c.id}')">מחק</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+  if(pageKey && paginationId) renderPagination(array, paginationId, pageKey);
+}
+function inlineEdit(id,field,value){ const all=[...customers,...inactive,...archive,...deletedCustomers]; const c=all.find(c=>c.id===id); if(!c)return; c[field]=value; saveLocal(); }
+function renderAll(){
+  renderTable(customers,'customersTable',false, document.getElementById('searchCustomers').value,
+    document.getElementById('filterFromCustomers').value, document.getElementById('filterToCustomers').value,'','','customers','customersPagination',sortConfig.customers.key,sortConfig.customers.asc);
+  renderTable(inactive,'inactiveTable',false, document.getElementById('searchInactive').value,
+    document.getElementById('filterFromInactive').value, document.getElementById('filterToInactive').value,'','','inactive','inactivePagination',sortConfig.inactive.key,sortConfig.inactive.asc);
+  renderTable(archive,'archiveTable',false, document.getElementById('searchArchive').value,
+    document.getElementById('filterFromArchive').value, document.getElementById('filterToArchive').value,'','','archive','archivePagination',sortConfig.archive.key,sortConfig.archive.asc);
+  deletedCustomers.sort((a,b)=>new Date(b.deletedDate)-new Date(a.deletedDate));
+  renderTable(deletedCustomers,'deletedTable',true, document.getElementById('searchDeleted').value,
+    document.getElementById('filterFromDeleted').value, document.getElementById('filterToDeleted').value,
+    document.getElementById('filterDeletedFrom').value, document.getElementById('filterDeletedTo').value,
+    'deleted','deletedPagination',sortConfig.deleted.key,sortConfig.deleted.asc);
+}
+
+/* ===== חיפוש וסינון ===== */
+['searchCustomers','searchInactive','searchArchive','searchDeleted',
+ 'filterFromCustomers','filterToCustomers',
+ 'filterFromInactive','filterToInactive',
+ 'filterFromArchive','filterToArchive',
+ 'filterFromDeleted','filterToDeleted','filterDeletedFrom','filterDeletedTo'
+].forEach(id=>{ document.getElementById(id).addEventListener('input',()=>{currentPage[id.replace(/search|filter/g,'').toLowerCase()]=1; renderAll();}); });
+
+/* ===== Sorting ===== */
+document.querySelectorAll('th[data-sort]').forEach(th=>{
+  th.addEventListener('click',()=>{
+    const table = th.closest('table').id;
+    const key = th.dataset.sort;
+    if(sortConfig[table.replace('Table','')].key===key) sortConfig[table.replace('Table','')].asc=!sortConfig[table.replace('Table','')].asc;
+    else { sortConfig[table.replace('Table','')].key=key; sortConfig[table.replace('Table','')].asc=true; }
+    renderAll();
+  });
+});
+
+/* ===== פעולות ===== */
+function deleteFromTable(id){
+  let idx = customers.findIndex(c=>c.id===id);
+  if(idx>=0){ moveToDeleted(customers[idx],customers); return; }
+  idx = inactive.findIndex(c=>c.id===id);
+  if(idx>=0){ moveToDeleted(inactive[idx],inactive); return; }
+  idx = archive.findIndex(c=>c.id===id);
+  if(idx>=0){ moveToDeleted(archive[idx],archive); return; }
+  idx = deletedCustomers.findIndex(c=>c.id===id);
+  if(idx>=0){ if(prompt('סיסמא למחיקה')===DELETE_PASSWORD){ deletedCustomers.splice(idx,1); saveLocal(); renderAll(); toast('נמחק לצמיתות'); } return; }
+}
+function moveToDeleted(customer, sourceArray){
+  customer.deletedDate = new Date().toLocaleString();
+  deletedCustomers.push(customer);
+  const idx = sourceArray.findIndex(c=>c.id===customer.id);
+  if(idx>=0) sourceArray.splice(idx,1);
+  saveLocal(); renderAll(); toast('הלקוח נמחק ונשלח לנמחקים');
+}
+function restoreCustomer(id){
+  const idx = deletedCustomers.findIndex(c=>c.id===id);
+  if(idx>=0){ customers.push(deletedCustomers[idx]); deletedCustomers.splice(idx,1); saveLocal(); renderAll(); toast('הלקוח הוחזר'); }
+}
+function restoreSelected(){
+  const selected = document.querySelectorAll('.multiSelect:checked');
+  if(selected.length===0){ toast('לא נבחרו לקוחות'); return; }
+  selected.forEach(cb=>{
+    const idx = deletedCustomers.findIndex(c=>c.id===cb.dataset.id);
+    if(idx>=0){ customers.push(deletedCustomers[idx]); deletedCustomers.splice(idx,1); }
+  });
+  saveLocal(); renderAll(); toast('לקוחות הוחזרו');
+}
+function deleteSelected(){
+  if(prompt('סיסמא למחיקה סופית')!==DELETE_PASSWORD){ toast('סיסמה שגויה'); return; }
+  const selected = document.querySelectorAll('.multiSelect:checked');
+  if(selected.length===0){ toast('לא נבחרו לקוחות'); return; }
+  selected.forEach(cb=>{
+    const idx = deletedCustomers.findIndex(c=>c.id===cb.dataset.id);
+    if(idx>=0) deletedCustomers.splice(idx,1);
+  });
+  saveLocal(); renderAll(); toast('לקוחות נמחקו לצמיתות');
+}
+function toggleFavorite(id){
+  if(favorites.includes(id)) favorites = favorites.filter(f=>f!==id); else favorites.push(id);
+  saveLocal(); renderAll();
+}
+
+/* ===== אתחול ===== */
+renderAll();
+</script>
+</body>
+</html>

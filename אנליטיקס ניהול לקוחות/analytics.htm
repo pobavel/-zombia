@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>אנליטיקס מקצועי — ניהול לקוחות זומבים</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body {
+  font-family:'Segoe UI',Tahoma,sans-serif;
+  margin:0; padding:0; direction:rtl;
+  background:linear-gradient(#f0f4f8,#e8f5e9);
+  color:#111;
+}
+header {
+  background:#2E71B3;
+  color:white;
+  box-shadow:0 4px 6px rgba(0,0,0,.12);
+  position:sticky;
+  top:0;
+  z-index:1000;
+}
+.navbar {
+  max-width:1600px;
+  margin:0 auto;
+  padding:12px 24px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.logo { font-size:20px; font-weight:bold; }
+.nav-links { list-style:none; display:flex; gap:20px; margin:0; padding:0; }
+.nav-links li a { color:white; text-decoration:none; font-size:16px; transition:0.3s; }
+.nav-links li a:hover { color:#ffd700; }
+h1 { margin:0; }
+.wrapper { max-width:1600px; margin:20px auto; padding:20px; display:flex; flex-direction:column; gap:20px; }
+.card { background:white; padding:20px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,.06); }
+button { padding:8px 12px; border:none; border-radius:6px; cursor:pointer; font-size:16px; background:#49C449; color:white; margin-left:10px; }
+button:hover { opacity:0.85; transform:scale(1.03); }
+canvas { max-width:100%; height:300px; }
+table { width:100%; border-collapse:collapse; direction:rtl; text-align:right; }
+th, td { padding:12px 8px; border-bottom:1px solid #ddd; }
+th { background:#2E71B3; color:white; }
+tr:hover { background:rgba(46,113,179,0.1); }
+.footer { background:#1A1A1A; color:white; padding:30px 20px; text-align:center; margin-top:30px; }
+.top-buttons { text-align:right; margin-bottom:10px; }
+.nav-arrows button { margin-left:5px; background:#2E71B3; }
+.nav-arrows button:disabled { opacity:0.5; cursor:not-allowed; }
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="navbar">
+    <div class="logo">אנליטיקס מקצועי</div>
+    <ul class="nav-links">
+      <li><a href="http://zombia.co.il">🏠 בית</a></li>
+      <li><a href="http://zombia.co.il/%D7%AA%D7%96%D7%9B%D7%95%D7%A8%D7%AA/iisstart1.htm">🔔 תזכורת</a></li>
+      <li><a href="#">📊 גרפים</a></li>
+      <li><a href="http://zombia.co.il/heshboniot/heshbonit.htm">📝 חשבוניות</a></li>
+    </ul>
+  </nav>
+</header>
+
+<main class="wrapper">
+
+  <div class="card top-buttons">
+    <button onclick="exportAnalytics()">ייצא ל-CSV📄</button>
+    <button onclick="resetAnalytics()" style="background:#d9534f;">איפוס נתונים🗑️</button>
+    <div class="nav-arrows" style="display:inline-block;">
+      <button id="prevBtn">⬅️ קודם</button>
+      <button id="nextBtn">הבא ➡️</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📊 טבלת לקוחות</h2>
+    <table id="customersTable">
+      <thead>
+        <tr>
+          <th>שם</th>
+          <th>אימייל</th>
+          <th>נייד</th>
+          <th>סכום</th>
+          <th>סטטוס</th>
+          <th>קטגוריה</th>
+          <th>תאריך יצירה</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- נתונים יתווספו דינמית -->
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" style="display:flex; flex-wrap:wrap; gap:20px;">
+    <div style="flex:1; min-width:300px;">
+      <h2>📊 סטטוס לקוחות</h2>
+      <canvas id="statusChart"></canvas>
+    </div>
+    <div style="flex:1; min-width:300px;">
+      <h2>📊 חלוקה לפי פעילות</h2>
+      <canvas id="activityChart"></canvas>
+    </div>
+    <div style="flex:1; min-width:300px;">
+      <h2>📊 לקוחות חדשים לפי חודש</h2>
+      <canvas id="newCustomersChart"></canvas>
+    </div>
+    <div style="flex:1; min-width:300px;">
+      <h2>📊 סכום כולל של תשלומים</h2>
+      <canvas id="amountChart"></canvas>
+    </div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  © 2025 ניהול לקוחות זומבים. כל הזכויות שמורות.
+</footer>
+
+<script>
+// ====== נתונים לדוגמה מ-localStorage ======
+let customers = JSON.parse(localStorage.getItem('customers')) || [];
+let inactive = JSON.parse(localStorage.getItem('inactive')) || [];
+let archive = JSON.parse(localStorage.getItem('archive')) || [];
+
+// הוספת תאריך ללקוחות ללא תאריך
+function ensureDates(arr){ arr.forEach(c=>{ if(!c.createdAt) c.createdAt = new Date().toISOString(); }); }
+ensureDates(customers); ensureDates(inactive); ensureDates(archive);
+
+// ====== Pagination ======
+let currentPage = 1;
+const itemsPerPage = 5;
+
+function populateTable(){
+  const tbody = document.getElementById('customersTable').querySelector('tbody');
+  tbody.innerHTML = '';
+  const all = [...customers,...inactive,...archive];
+
+  const start = (currentPage-1) * itemsPerPage;
+  const end = start + itemsPerPage;
+  const pageItems = all.slice(start, end);
+
+  pageItems.forEach(c=>{
+    const type = customers.includes(c)?'פעיל':inactive.includes(c)?'לא פעיל':'ארכיון';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${c.name}</td><td>${c.email}</td><td>${c.mobile}</td><td>${c.amount || 0}</td><td>${c.status}</td><td>${type}</td><td>${new Date(c.createdAt).toLocaleDateString('he-IL')}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  // עדכון כפתורי ניווט
+  document.getElementById('prevBtn').disabled = currentPage === 1;
+  document.getElementById('nextBtn').disabled = end >= all.length;
+}
+
+// ====== חיצים ======
+document.getElementById('prevBtn').addEventListener('click', ()=>{
+  if(currentPage>1) currentPage--;
+  populateTable();
+});
+
+document.getElementById('nextBtn').addEventListener('click', ()=>{
+  const all = [...customers,...inactive,...archive];
+  if(currentPage*itemsPerPage < all.length) currentPage++;
+  populateTable();
+});
+
+// ====== גרפים ======
+function renderStatusChart(){
+  const all = [...customers,...inactive,...archive];
+  const statusCounts = {שילם:0, מתנסה:0, 'לא שילם':0, חסום:0};
+  all.forEach(c=>{ if(statusCounts[c.status]!==undefined) statusCounts[c.status]++; });
+  new Chart(document.getElementById('statusChart'),{
+    type:'doughnut',
+    data:{ labels:Object.keys(statusCounts), datasets:[{data:Object.values(statusCounts), backgroundColor:['#147A00','#0275d8','#d9534f','#555']}] },
+    options:{responsive:true, plugins:{legend:{position:'bottom'}}}
+  });
+}
+
+function renderActivityChart(){
+  const activityCounts = {פעילים:customers.length,'לא פעילים':inactive.length,'ארכיון':archive.length};
+  new Chart(document.getElementById('activityChart'),{
+    type:'bar',
+    data:{ labels:Object.keys(activityCounts), datasets:[{label:'מספר לקוחות', data:Object.values(activityCounts), backgroundColor:['#2E71B3','#f0ad4e','#ccc']}] },
+    options:{responsive:true, plugins:{legend:{display:false}}}
+  });
+}
+
+function renderNewCustomersChart(){
+  const all = [...customers,...inactive,...archive];
+  const monthlyCounts = {};
+  all.forEach(c=>{
+    const d = new Date(c.createdAt);
+    const key = `${d.getFullYear()}-${('0'+(d.getMonth()+1)).slice(-2)}`;
+    monthlyCounts[key] = (monthlyCounts[key]||0)+1;
+  });
+  const labels = Object.keys(monthlyCounts).sort();
+  const data = labels.map(l=>monthlyCounts[l]);
+  new Chart(document.getElementById('newCustomersChart'),{
+    type:'line',
+    data:{labels, datasets:[{label:'לקוחות חדשים', data, borderColor:'#2E71B3', backgroundColor:'rgba(46,113,179,0.2)', fill:true}]},
+    options:{responsive:true, plugins:{legend:{display:true}}}
+  });
+}
+
+function renderAmountChart(){
+  const all = [...customers,...inactive,...archive];
+  const totalAmount = all.reduce((sum,c)=>sum+(parseFloat(c.amount)||0),0);
+  new Chart(document.getElementById('amountChart'),{
+    type:'bar',
+    data:{ labels:['סכום כולל'], datasets:[{label:'₪', data:[totalAmount], backgroundColor:['#49C449']}] },
+    options:{responsive:true, plugins:{legend:{display:false}}}
+  });
+}
+
+// ====== יצוא CSV ======
+function exportAnalytics(){
+  const all = [...customers,...inactive,...archive];
+  let csv="שם,אימייל,נייד,סכום,סטטוס,קטגוריה,תאריך יצירה\n";
+  all.forEach(c=>{
+    const type = customers.includes(c)?'פעיל':inactive.includes(c)?'לא פעיל':'ארכיון';
+    csv += `${c.name},${c.email},${c.mobile},${c.amount || 0},${c.status},${type},${c.createdAt}\n`;
+  });
+  const blob = new Blob([csv],{type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download='analytics.csv'; a.click();
+  URL.revokeObjectURL(url);
+  alert("דו״ח יוצא ל-CSV");
+}
+
+// ====== איפוס נתונים ======
+function resetAnalytics(){
+  if(confirm("האם אתה בטוח שברצונך לאפס את כל הנתונים?")){
+    localStorage.removeItem('customers');
+    localStorage.removeItem('inactive');
+    localStorage.removeItem('archive');
+    customers=[]; inactive=[]; archive=[];
+    currentPage = 1;
+    populateTable();
+    renderStatusChart();
+    renderActivityChart();
+    renderNewCustomersChart();
+    renderAmountChart();
+    alert("כל הנתונים אופסו בהצלחה!");
+  }
+}
+
+// ====== טעינה ======
+function renderAllAnalytics(){
+  populateTable();
+  renderStatusChart();
+  renderActivityChart();
+  renderNewCustomersChart();
+  renderAmountChart();
+}
+
+window.addEventListener('DOMContentLoaded', renderAllAnalytics);
+</script>
+
+</body>
+</html>
